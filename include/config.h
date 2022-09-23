@@ -19,27 +19,35 @@ enum strip {
 // In case of RGB(W): red, green, blue(, white) is used
 // All values need to be present, if they are not needed, set to -1,
 // it will be ignored.
-#define CONFIG_PIN_RED   0  // For RGB(W)
-#define CONFIG_PIN_GREEN 2  // For RGB(W)
-#define CONFIG_PIN_BLUE  3  // For RGB(W)
+#define CONFIG_PIN_RED   14  // For RGB(W)
+#define CONFIG_PIN_GREEN 12  // For RGB(W)
+#define CONFIG_PIN_BLUE  13  // For RGB(W)
 #define CONFIG_PIN_WHITE -1 // For BRIGHTNESS and RGBW
 
 // WiFi
-#define CONFIG_WIFI_SSID "{WIFI-SSID}"
-#define CONFIG_WIFI_PASS "{WIFI-PASSWORD}"
+#define CONFIG_WIFI_SSID "WhyFi"
+#define CONFIG_WIFI_PASS "oatsforbreakfast"
 
 // MQTT
-#define CONFIG_MQTT_HOST "{MQTT-SERVER}"
+#define CONFIG_MQTT_HOST "homeassistant.lan"
 #define CONFIG_MQTT_PORT 1883 // Usually 1883
-#define CONFIG_MQTT_USER "{MQTT-USERNAME}"
-#define CONFIG_MQTT_PASS "{MQTT-PASSWORD}"
-#define CONFIG_MQTT_CLIENT_ID "ESP_LED" // Must be unique on the MQTT network
+#define CONFIG_MQTT_USER "mqtt"
+#define CONFIG_MQTT_PASS "mqtt"
+#define CONFIG_MQTT_CLIENT_ID "jamie_s_bedroom_rgb_led_strip" // Must be unique on the MQTT network
+#define CONFIG_MQTT_NAME "Jamie's Bedroom RGB LED Strip"
 
 #define CONFIG_DEFAULT_TRANSITION_TIME 1
 
 // MQTT Topics
-#define CONFIG_MQTT_TOPIC_STATE "home/ESP_LED"
-#define CONFIG_MQTT_TOPIC_SET "home/ESP_LED/set"
+#define CONFIG_MQTT_BASE_TOPIC             "homeassistant/light/jamie_s_bedroom_rgb_led_strip"
+#define CONFIG_MQTT_TOPIC_STATE            "homeassistant/light/jamie_s_bedroom_rgb_led_strip/light/status"
+#define CONFIG_MQTT_TOPIC_SET              "homeassistant/light/jamie_s_bedroom_rgb_led_strip/light/switch"
+#define CONFIG_MQTT_TOPIC_BRIGHTNESS_SET   "homeassistant/light/jamie_s_bedroom_rgb_led_strip/brightness/set"
+#define CONFIG_MQTT_TOPIC_RGB_SET          "homeassistant/light/jamie_s_bedroom_rgb_led_strip/rgb/set"
+#define CONFIG_MQTT_TOPIC_DISCOVERY        "homeassistant/light/jamie_s_bedroom_rgb_led_strip/config"
+#define CONFIG_MQTT_STATE_VALUE_TEMPLATE "{{ value_json.state }}"
+#define CONFIG_MQTT_BRIGHTNESS_VALUE_TEMPLATE "{{ value_json.brightness }}"
+#define CONFIG_MQTT_RGB_VALUE_TEMPLATE "{{ value_json.rgb | join(',') }}"
 
 #define CONFIG_MQTT_PAYLOAD_ON "ON"
 #define CONFIG_MQTT_PAYLOAD_OFF "OFF"
@@ -63,4 +71,4 @@ enum strip {
 #define CONFIG_LED_BUILTIN_MODE -1
 
 // Enables Serial and print statements
-#define CONFIG_DEBUG false
+#define CONFIG_DEBUG true

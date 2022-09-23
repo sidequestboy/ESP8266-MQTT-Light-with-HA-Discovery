@@ -25,7 +25,7 @@
 const bool rgb = (CONFIG_STRIP == RGB) || (CONFIG_STRIP == RGBW);
 const bool includeWhite = (CONFIG_STRIP == BRIGHTNESS) || (CONFIG_STRIP == RGBW);
 
-const int BUFFER_SIZE = JSON_OBJECT_SIZE(20);
+const int BUFFER_SIZE = JSON_OBJECT_SIZE(30);
 
 // Maintained state for reporting to HA
 byte red = 255;
@@ -104,6 +104,8 @@ void setup_wifi() {
   Serial.println(WiFi.localIP());
 }
 bool processJson(char* message) {
+  doc.clear();
+  doc.garbageCollect();
 
   DeserializationError error = deserializeJson(doc, message); 
 
@@ -212,6 +214,8 @@ bool processJson(char* message) {
   return true;
 }
 void sendState() {
+  doc.clear();
+  doc.garbageCollect();
 
   doc["state"] = (stateOn) ? CONFIG_MQTT_PAYLOAD_ON : CONFIG_MQTT_PAYLOAD_OFF;
   if (rgb) {
@@ -245,6 +249,43 @@ void sendState() {
   serializeJson(doc, buffer, size);
 
   client.publish(CONFIG_MQTT_TOPIC_STATE, buffer, true);
+}
+
+void sendDiscovery() {
+  doc.clear();
+  doc.garbageCollect();
+  doc["name"] = CONFIG_MQTT_NAME;
+  doc["uniq_id"] = CONFIG_MQTT_CLIENT_ID;
+  doc["~"] = CONFIG_MQTT_BASE_TOPIC;
+  doc["stat_t"] = CONFIG_MQTT_TOPIC_STATE;
+  doc["cmd_t"] = CONFIG_MQTT_TOPIC_SET;
+  doc["stat_val_tpl"] = CONFIG_MQTT_STATE_VALUE_TEMPLATE;
+  doc["bri_cmd_t"] = CONFIG_MQTT_TOPIC_BRIGHTNESS_SET;
+  doc["bri_val_tpl"] = CONFIG_MQTT_BRIGHTNESS_VALUE_TEMPLATE;
+  doc["rgb_cmd_t"] = CONFIG_MQTT_TOPIC_RGB_SET;
+  doc["rgb_val_tpl"] = CONFIG_MQTT_RGB_VALUE_TEMPLATE;
+  doc["optimistic"] = false;
+  JsonArray effects = doc.createNestedArray("effect_list");
+  effects.add("colorfade_slow");
+  effects.add("colorfade_fast");
+  effects.add("flash");
+  doc["payload_on"] = CONFIG_MQTT_PAYLOAD_ON;
+  doc["payload_off"] = CONFIG_MQTT_PAYLOAD_OFF;
+  doc["qos"] = 0;
+
+  size_t size = measureJson(doc) + 1;
+  Serial.print("size of discovery msg: ");
+  Serial.println(size);
+
+  char buffer[size];
+  serializeJson(doc, buffer, size);
+
+  bool res = client.publish(CONFIG_MQTT_TOPIC_DISCOVERY, buffer, true);
+  if (res) {
+    Serial.println("successfully published discovery msg");
+  } else {
+    Serial.println("discovery msg was not successful.");
+  }
 }
 
   /*
@@ -282,8 +323,27 @@ void callback(char* topic, byte* payload, unsigned int length) {
   }
   message[length] = '\0';
   Serial.println(message);
-
-  if (!processJson(message)) {
+  
+  // home assistant sends not valid json for ON and OFF
+  if (strcmp(topic, CONFIG_MQTT_TOPIC_SET) == 0) {
+    if (strcmp(message, CONFIG_MQTT_PAYLOAD_ON) == 0) {
+      stateOn = true;
+    } else if (strcmp(message, CONFIG_MQTT_PAYLOAD_OFF) == 0) {
+      stateOn = false;
+    }
+  } else if (strcmp(topic, CONFIG_MQTT_TOPIC_BRIGHTNESS_SET) == 0) {
+    brightness = atoi(message);
+    stateOn = true;
+    Serial.println(brightness);
+  } else if (strcmp(topic, CONFIG_MQTT_TOPIC_RGB_SET) == 0) {
+    red = atoi(message);
+    green = atoi(&strchr(message, ',')[1]);
+    blue = atoi(&strrchr(message, ',')[1]);
+    Serial.println(red);
+    Serial.println(green);
+    Serial.println(blue);
+    
+  } else if (!processJson(message)) {
     return;
   }
 
@@ -317,7 +377,10 @@ void reconnect() {
     // Attempt to connect
     if (client.connect(CONFIG_MQTT_CLIENT_ID, CONFIG_MQTT_USER, CONFIG_MQTT_PASS)) {
       Serial.println("connected");
+      client.setBufferSize(1024);
       client.subscribe(CONFIG_MQTT_TOPIC_SET);
+      client.subscribe(CONFIG_MQTT_TOPIC_BRIGHTNESS_SET);
+      client.subscribe(CONFIG_MQTT_TOPIC_RGB_SET);
     } else {
       Serial.print("failed, rc=");
       Serial.print(client.state());
@@ -347,6 +410,7 @@ void setColor(int inR, int inG, int inB, int inW) {
   }
 
   if (CONFIG_DEBUG) {
+    /*
     Serial.print("Setting LEDs: {");
     if (rgb) {
       Serial.print("r: ");
@@ -366,6 +430,7 @@ void setColor(int inR, int inG, int inB, int inW) {
     }
 
     Serial.println("}");
+    */
   }
 }
 
@@ -468,6 +533,13 @@ void setup() {
   setup_wifi();
   client.setServer(CONFIG_MQTT_HOST, CONFIG_MQTT_PORT);
   client.setCallback(callback);
+  while (!client.connected()) {
+    reconnect();
+    delay(500);
+  }
+  sendDiscovery();
+  setColor(realRed, realGreen, realBlue, realWhite);
+  sendState();
 }
 
 void loop() {
@@ -545,9 +617,9 @@ void loop() {
 
         setColor(redVal, grnVal, bluVal, whtVal); // Write current values to LED pins
 
-        Serial.print("Loop count: ");
-        Serial.println(loopCount);
-        loopCount++;
+        //Serial.print("Loop count: ");
+        //Serial.println(loopCount);
+        //loopCount++;
       }
       else {
         inFade = false;
